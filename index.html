@@ -2,75 +2,144 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EC2 Instance Info</title>
+    <title>3D-Looking Electromagnetic Wave Double Helix Animation</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 50px auto;
-            padding: 20px;
-            background: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            background: black;
+            overflow: hidden;
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            margin-top: 0;
-        }
-        .info-item {
-            margin: 15px 0;
-            padding: 10px;
-            background: #f9f9f9;
-            border-left: 4px solid #007bff;
-        }
-        .label {
-            font-weight: bold;
-            color: #555;
-        }
-        .value {
-            color: #333;
-            margin-top: 5px;
-            font-family: monospace;
+        canvas {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>EC2 Instance Information</h1>
-        
-        <div class="info-item">
-            <div class="label">Private IP Address:</div>
-            <div class="value"><!--#echo var="private_ip" --></div>
-        </div>
-        
-        <div class="info-item">
-            <div class="label">Hostname:</div>
-            <div class="value"><!--#echo var="hostname" --></div>
-        </div>
-        
-        <div class="info-item">
-            <div class="label">Current Deployed Date:</div>
-            <div class="value"><!--#echo var="DATE_LOCAL" --></div>
-        </div>
-        
-        <div class="info-item">
-            <div class="label">Current Code Version:</div>
-            <div class="value"><!--#echo var="version" --></div>
-        </div>
+    <canvas id="canvas"></canvas>
+    <script>
+        (function($) {
+            $.fn.DoubleHelix = function(options) {
+                var settings = {
+                    fps: 60,
+                    fgColor: "255,255,255",
+                    bgColor: "0,0,0"
+                };
 
-        <!-- Free text / paragraph section -->
-        <div class="container" style="margin-top: 20px;">
-        <p style="color:#444; line-height:1.6;">
-            <!-- You can put any free string here -->
-            <!--#echo var="free_text" -->
-            this is my final edit to html file
-        </p>
-    </div>
-    </div>
+                if (options) { settings = $.extend(settings, options); }
+
+                var calculator = function(c, dim, t, x) {
+                    var y1 = 0, y2 = 0, z1 = 0, z2 = 0;
+
+                    var drawShape = function(y, x, opacity) {
+                        c.fillStyle = "rgba(" + settings.fgColor + "," + opacity + ")";
+                        c.beginPath();
+                        c.arc(x + 5, y + 5, 5, 0, Math.PI * 2, true);
+                        c.closePath();
+                        c.fill();
+                    };
+
+                    var drawLine = function(x, y1, y2, z1, z2) {
+                        c.beginPath();
+                        c.moveTo(x + 5, y1 + 5);
+                        c.lineTo(x + 5, y2 + 5);
+                        var g = c.createLinearGradient(x, y1, x, y2);
+                        g.addColorStop(0, "rgba(" + settings.fgColor + "," + z1 + ")");
+                        g.addColorStop(1, "rgba(" + settings.fgColor + "," + z2 + ")");
+                        c.strokeStyle = g;
+                        c.stroke();
+                    };
+
+                    var fix = function(n) {
+                        return Math.round(n * 10) / 10;
+                    };
+
+                    return {
+                        calculate: function() {
+                            t += 0.25;
+                            y1 = Math.cos(t / 360 * (Math.PI * 2));
+                            y2 = Math.sin((t + 270) / 360 * (Math.PI * 2));
+                            z1 = Math.cos((t + 90) / 360 * (Math.PI * 2));
+                            z2 = Math.sin((t + 360) / 360 * (Math.PI * 2));
+                        },
+                        draw: function() {
+                            var _y1 = fix((y1 * (dim.halfHeight - 5)) + dim.halfHeight - 5);
+                            var _y2 = fix((y2 * (dim.halfHeight - 5)) + dim.halfHeight - 5);
+                            var _z1 = (z1 + 1) / 2;
+                            var _z2 = (z2 + 1) / 2;
+
+                            if (_y1 != 45) { drawLine(x, _y1, _y2, _z1, _z2); }
+
+                            drawShape(_y1, x, _z1);
+                            drawShape(_y2, x, _z2);
+                        }
+                    };
+                };
+
+                return this.each(function(i) {
+                    var c = this.getContext('2d');
+
+                    var dim = {
+                        width: c.canvas.width,
+                        height: c.canvas.height,
+                        halfHeight: c.canvas.height / 2,
+                        halfWidth: c.canvas.width / 2
+                    };
+
+                    var buffer = document.createElement('canvas');
+                    buffer.setAttribute('width', 180);
+                    buffer.setAttribute('height', dim.height);
+
+                    var cb = buffer.getContext('2d');
+
+                    var calculators = [];
+                    for (var n = 0; n < 9; n++) {
+                        var calc = new calculator(cb, dim, n * 20, n * 20);
+                        calculators[n] = calc;
+                    }
+
+                    var copies = dim.width > 180 ? Math.ceil(dim.width / 180) : 1;
+
+                    var now, delta;
+                    var then = Date.now();
+                    var interval = 1000 / settings.fps;
+
+                    var draw = function() {
+                        requestAnimationFrame(draw);
+
+                        now = Date.now();
+                        delta = now - then;
+
+                        if (delta >= interval) {
+                            cb.clearRect(0, 0, 180, dim.height);
+                            cb.fillStyle = settings.bgColor;
+                            cb.fillRect(0, 0, 180, dim.height);
+                            $.each(calculators, function(i, calc) {
+                                calc.calculate();
+                                calc.draw();
+                            });
+
+                            c.clearRect(0, 0, dim.width, dim.height);
+                            for (var n = 0; n < copies; n++) {
+                                c.drawImage(buffer, n * 180, 0);
+                            }
+
+                            then = now - (delta % interval);
+                        }
+                    };
+
+                    draw();
+                });
+            };
+        })(jQuery);
+
+        $(document).ready(function() {
+            var canvas = $('#canvas')[0];
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            $(canvas).DoubleHelix();
+        });
+    </script>
 </body>
 </html>
